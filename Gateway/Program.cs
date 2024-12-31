@@ -1,4 +1,6 @@
 using Gateway.Configurations;
+using OpenTelemetry.Resources;
+using OpenTelemetry.Trace;
 
 var builder = WebApplication.CreateBuilder(args);
 // Add services to the container.
@@ -17,6 +19,17 @@ configurationBuilder.AddJsonFile(
 
 builder.Services.AddReverseProxy().LoadFromConfig(configurationBuilder.Build().GetSection("ReverseProxy"));
 
+const string serviceName = "gateway-api";
+builder.Services.AddOpenTelemetry()
+    .ConfigureResource(resource => resource.AddService(serviceName))
+    .WithTracing(tracing =>
+    {
+        tracing
+            .AddAspNetCoreInstrumentation()
+            .AddHttpClientInstrumentation()
+            .AddOtlpExporter()
+            .AddJaegerExporter();
+    });
 
 var app = builder.Build();
 
