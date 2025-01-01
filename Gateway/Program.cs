@@ -1,6 +1,12 @@
 using Gateway.Configurations;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
+using OpenTelemetry.Exporter;
+using OpenTelemetry;
+using System.Diagnostics;  // For Activity and ActivitySource
+using OpenTelemetry;       // For OpenTelemetry services
+using OpenTelemetry.Trace; // For SpanProcessor and related tracing functionality
+
 
 var builder = WebApplication.CreateBuilder(args);
 // Add services to the container.
@@ -17,7 +23,6 @@ configurationBuilder.AddJsonFile(
         : "appsettings.Production.json",
     optional: false, reloadOnChange: true);
 
-builder.Services.AddReverseProxy().LoadFromConfig(configurationBuilder.Build().GetSection("ReverseProxy"));
 
 const string serviceName = "gateway-api";
 builder.Services.AddOpenTelemetry()
@@ -28,15 +33,19 @@ builder.Services.AddOpenTelemetry()
             .AddAspNetCoreInstrumentation()
             .AddHttpClientInstrumentation()
             .AddOtlpExporter()
-            .AddJaegerExporter();
+            .AddJaegerExporter()
+            .AddConsoleExporter();
     });
+
+builder.Services.AddReverseProxy().LoadFromConfig(configurationBuilder.Build().GetSection("ReverseProxy"));
+
 
 var app = builder.Build();
 
 app.UseSwagger();
 app.UseSwaggerUI(opt =>
 {
-    opt.SwaggerEndpoint("/swagger/projects/1.0/swagger.json", "Catalog service - 1.0");
+    opt.SwaggerEndpoint("/swagger/projects/1.0/swagger.json", "Project service - 1.0");
     opt.SwaggerEndpoint("/swagger/identity/1.0/swagger.json", "Identity service - 1.0");
     // opt.SwaggerEndpoint("/swagger/customers/1.0/swagger.json", "Customer service - 1.0");
     // opt.SwaggerEndpoint("/swagger/orders/1.0/swagger.json", "Order service - 1.0");
