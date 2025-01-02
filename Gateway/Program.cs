@@ -30,7 +30,17 @@ builder.Services.AddOpenTelemetry()
     .WithTracing(tracing =>
     {
         tracing
-            .AddAspNetCoreInstrumentation()
+            .AddAspNetCoreInstrumentation(options =>
+            {
+                options.EnrichWithHttpResponse = (activity, response) =>
+                {
+                    var downstreamPath = activity.TagObjects.FirstOrDefault(x => x.Key == "url.path").Value?.ToString();
+                    var upstreamRoute = activity.TagObjects.FirstOrDefault(x => x.Key == "http.route").Value?.ToString();
+                    var method = activity.TagObjects.FirstOrDefault(x => x.Key == "http.request.method").Value?.ToString();
+
+                    activity.DisplayName = $"{method} - {upstreamRoute} => {downstreamPath}";
+                };
+            })
             .AddHttpClientInstrumentation()
             .AddOtlpExporter()
             .AddJaegerExporter()
@@ -41,6 +51,18 @@ builder.Services.AddReverseProxy().LoadFromConfig(configurationBuilder.Build().G
 
 
 var app = builder.Build();
+
+app.Use(async (context, next) =>
+{
+    var activity = System.Diagnostics.Activity.Current;
+    if (activity != null)
+    {
+        activity.DisplayName = $"Gateway to http://localhost:5000{context.Request.Path}";
+    }
+
+    await next();
+});
+
 
 app.UseSwagger();
 app.UseSwaggerUI(opt =>
